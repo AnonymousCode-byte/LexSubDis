@@ -1,0 +1,65 @@
+import spacy
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import wordnet
+
+# 初始化 spaCy 和 WordNetLemmatizer
+nlp = spacy.load("en_core_web_sm")
+lemmatizer = WordNetLemmatizer()
+
+# spaCy 的词性转为 WordNet 的 POS 标记
+def get_wordnet_pos(spacy_pos):
+    if spacy_pos.startswith("V"):
+        return wordnet.VERB
+    elif spacy_pos.startswith("J"):
+        return wordnet.ADJ
+    elif spacy_pos.startswith("R"):
+        return wordnet.ADV
+    elif spacy_pos.startswith("N"):
+        return wordnet.NOUN
+    else:
+        return None  # 不支持的词性
+
+# 根据原始词性将 candidate 同义词改为一致的形式
+def inflect_to_match_pos(original_word, original_pos, synonym_list):
+    # 如果不是动词/形容词/副词，就不做处理
+    if original_pos not in ['V', 'J', 'R']:  # 分别表示动词、形容词、副词
+        return synonym_list
+
+    wordnet_pos = get_wordnet_pos(original_pos)
+    if wordnet_pos is None:
+        return synonym_list
+
+    # 获取原词的时态、形态等信息（只用 spaCy 的 token）
+    doc = nlp(original_word)
+    if not doc:
+        return synonym_list
+
+    orig_token = doc[0]
+    inflected_list = []
+
+    for syn in synonym_list:
+        syn_doc = nlp(syn)
+        if not syn_doc:
+            inflected_list.append(syn)
+            continue
+
+        syn_token = syn_doc[0]
+        # 使用 lemmatizer 统一词形为 lemma，然后再 inflect 为原始形态
+        lemma = lemmatizer.lemmatize(syn, pos=wordnet_pos)
+        try:
+            # 使用 spaCy Token.morph 来猜测原始形态（简化处理）
+            if original_pos == 'V':
+                if orig_token.tag_ in ['VBD', 'VBN']:  # 过去式 / 过去分词
+                    lemma += 'ed'
+                elif orig_token.tag_ == 'VBZ':  # 三单
+                    lemma += 's'
+                elif orig_token.tag_ == 'VBG':  # 现在分词
+                    lemma += 'ing'
+            elif original_pos == 'J':
+                # 对形容词的比较级、最高级可加 -er / -est（简化处理）
+                lemma = syn  # 一般不变化
+            inflected_list.append(lemma)
+        except Exception:
+            inflected_list.append(syn)
+
+    return inflected_list
