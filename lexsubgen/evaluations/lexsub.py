@@ -42,6 +42,7 @@ from lexsubgen.prob_estimators.electra_estimator import ElectraProbEstimator    
 from sentence_transformers import SentenceTransformer, util
 from candidates_from_wordnet.from_wordnet import created_proposed_list
 from candidates_from_wordnet.wordnet import Wordnet
+from pre_processors.wordnet_adjust import inflect_to_match_pos
 logger = logging.getLogger(Path(__file__).name)
 
 DEFAULT_RUN_DIR = Path(__file__).resolve().parent.parent / "run"/"debug" / Path(__file__).stem
@@ -228,7 +229,7 @@ class LexSubEvaluation(Task):
 
                 # 针对每个筛选后的同义词，构造新的 tokens 列表，将目标词替换，若同义词为空则不遍历   
                 num_synonyms=10         # 补充,10个有点不全,semeval of the first gold_candidates don't exist-同义优先
-                
+                filtered_synonyms = inflect_to_match_pos(original_word, pos_tag, filtered_synonyms)
                 if filtered_synonyms:       # can't find the synonyms   dont restrict the synonyms
                     synonym_ordered=self.substitute_generator.get_ordered_synonyms(word_temp,filtered_synonyms)
                     if len(synonym_ordered)>=10:
